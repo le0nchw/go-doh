@@ -1,0 +1,12 @@
+[Unit]
+Description=Go DOH Proxy
+After=network.target
+
+[Service]
+Restart=always
+User=root
+ExecStart=/usr/local/bin/doh
+ExecStop=/usr/bin/kill -HUP $MAINPID
+
+[Install]
+WantedBy=multi-user.target
