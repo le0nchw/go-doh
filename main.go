@@ -8,13 +8,56 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 )
+
+// DNSCacheEntry represents a cached DNS response
+type DNSCacheEntry struct {
+	Response []byte
+	Expiry   time.Time
+}
+
+type DNSCache struct {
+	cache map[string]DNSCacheEntry
+	mutex sync.RWMutex
+}
+
+func NewDNSCache() *DNSCache {
+	return &DNSCache{
+		cache: make(map[string]DNSCacheEntry),
+	}
+}
+
+func (c *DNSCache) Get(key string) ([]byte, bool) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	entry, ok := c.cache[key]
+	if !ok || entry.Expiry.Before(time.Now()) {
+		return nil, false
+	}
+
+	return entry.Response, true
+}
+
+func (c *DNSCache) Set(key string, response []byte, ttl time.Duration) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.cache[key] = DNSCacheEntry{
+		Response: response,
+		Expiry:   time.Now().Add(ttl),
+	}
+}
 
 func main() {
 	// Create a new HTTP server
 	server := &http.Server{
 		Addr: ":8080",
 	}
+
+	cache := NewDNSCache()
 
 	// Handle incoming HTTP requests
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -34,6 +77,11 @@ func main() {
 			http.Error(w, "No DNS query provided", http.StatusBadRequest)
 			return
 		}
+		dnsQueryString := string(dnsQuery)
+		if res, ok := cache.Get(dnsQueryString); ok {
+			forwardDNSResponse(w, res)
+			return
+		}
 
 		// Send the DNS query to the local DNS resolver
 		response, err := sendDNSQuery(dnsQuery)
@@ -44,6 +92,7 @@ func main() {
 		}
 
 		// Forward the DNS response to the client
+		cache.Set(dnsQueryString, response, time.Second*10)
 		forwardDNSResponse(w, response)
 	})
 
