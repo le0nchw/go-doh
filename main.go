@@ -198,10 +198,11 @@ func sendDNSQuery(query []byte) ([]byte, error) {
 	}
 
 	buffer := make([]byte, 512)
-	_, err = conn.Read(buffer)
+	n, err := conn.Read(buffer)
 	if err != nil {
 		return nil, err
 	}
+	buffer = buffer[:n]
 
 	return buffer, nil
 }
