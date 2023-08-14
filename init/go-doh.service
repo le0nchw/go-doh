@@ -6,7 +6,6 @@ After=network.target
 Restart=always
 User=root
 ExecStart=/usr/local/bin/doh
-ExecStop=/usr/bin/kill -HUP $MAINPID
 
 [Install]
 WantedBy=multi-user.target
