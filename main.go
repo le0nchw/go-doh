@@ -2,15 +2,24 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
+	"flag"
+	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/http"
+	"os"
+	"os/signal"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
+
+var upstream = flag.String("upstream", "127.0.0.1:53", "DNS Upstream Address and Port")
+var port = flag.Int("port", 8080, "Port to listen")
 
 // DNSCacheEntry represents a cached DNS response
 type DNSCacheEntry struct {
@@ -24,9 +33,21 @@ type DNSCache struct {
 }
 
 func NewDNSCache() *DNSCache {
-	return &DNSCache{
+	c := DNSCache{
 		cache: make(map[string]DNSCacheEntry),
 	}
+	go func() {
+		for range time.Tick(time.Minute) {
+			for k, v := range c.cache {
+				if v.Expiry.Before(time.Now()) {
+					c.mutex.Lock()
+					delete(c.cache, k)
+					c.mutex.Unlock()
+				}
+			}
+		}
+	}()
+	return &c
 }
 
 func (c *DNSCache) Get(key string) ([]byte, bool) {
@@ -52,9 +73,11 @@ func (c *DNSCache) Set(key string, response []byte, ttl time.Duration) {
 }
 
 func main() {
+	flag.Parse()
+
 	// Create a new HTTP server
 	server := &http.Server{
-		Addr: ":8080",
+		Addr: fmt.Sprintf(":%d", *port),
 	}
 
 	cache := NewDNSCache()
@@ -92,13 +115,35 @@ func main() {
 		}
 
 		// Forward the DNS response to the client
-		cache.Set(dnsQueryString, response, time.Second*10)
+		go cache.Set(dnsQueryString, response, time.Second*30)
 		forwardDNSResponse(w, response)
 	})
 
-	// Start the HTTP server
-	log.Println("DoH proxy started on http://localhost:8080")
-	log.Fatal(server.ListenAndServe())
+	c := make(chan os.Signal, 1)
+	defer close(c)
+	signal.Notify(c, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		// Start the HTTP server
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("listen: %s\n", err)
+		}
+	}()
+	log.Printf("DoH proxy started on http://localhost:%d, upstream server: %s\n", *port, *upstream)
+
+	<-c
+	log.Print("Graceful shutdown")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer func() {
+		// extra handling here
+		cancel()
+	}()
+
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatalf("Server Shutdown Failed:%+v", err)
+	}
+	log.Print("Server Exited")
 }
 
 // Extract the DNS query from the GET request
@@ -141,7 +186,7 @@ func decodeBase64URL(data string) ([]byte, error) {
 
 // Send the DNS query to the local DNS resolver
 func sendDNSQuery(query []byte) ([]byte, error) {
-	conn, err := net.Dial("udp", "127.0.0.1:53")
+	conn, err := net.Dial("udp", *upstream)
 	if err != nil {
 		return nil, err
 	}
