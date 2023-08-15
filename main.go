@@ -144,6 +144,7 @@ func main() {
 		log.Fatalf("Server Shutdown Failed:%+v", err)
 	}
 	log.Print("Server Exited")
+	os.Exit(0)
 }
 
 // Extract the DNS query from the GET request
