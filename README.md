@@ -1,28 +1,27 @@
 ## Go DOH Proxy
-This is a DNS-over-HTTP(S) (DoH) proxy implemented in Go. It allows you to forward DNS queries over HTTP to a upstream DNS resolver. The proxy acts as an intermediary between clients and the DNS resolver, providing a convenient way to make DNS queries over HTTP(S).
+This is a DNS-over-HTTP(S) (DoH) proxy implemented in Go. It allows you to forward DNS queries over HTTP(S) to a upstream DNS resolver. The proxy acts as an intermediary between clients and the DNS resolver, providing a convenient way to make DNS queries over HTTP(S).
 
 
 ### Features
-- Listens on a specified port for incoming HTTP requests.
-- Support DOH Wireformat ([RFC1035](https://datatracker.ietf.org/doc/html/rfc1035)).
-- Caches DNS responses to improve performance.
-- Forwards the DNS query to upstream server.
-- Returns the DNS response to the client.
-- Integrates with Cloudflare Argo Tunnel, NGINX or other reverse proxy to support HTTPS request.
-- Integrates with pihole
+- Act as a proxy for your upstream DNS server while offering DoH functionality.
+- Support DNS Wireformat ([RFC1035](https://datatracker.ietf.org/doc/html/rfc1035)).
+- Efficiently caches DNS responses to alleviate upstream server load and optimize performance.
+- Capable of integrating with Cloudflare Tunnel, NGINX, or other reverse proxy solutions to provide support for HTTPS requests.
+- Capable of integrating with Pi-hole to enable DNS-over-HTTPS (DoH) functionality for your personal Pi-hole.
 
 
 ### Prerequisites
 - Go 1.20 or higher
-- Cloudflare account (optional, for Argo Tunnel)
+- Cloudflare account (optional, for Cloudflare Tunnel)
 - NGINX installed and configured (optional, for reverse proxy)
 - Pi-hole (optional, for local adblock DNS resolver)
 
 ### Installation
 1. Clone the repository
 ```
-git clone https://github.com/le0nchw/go-doh
-
+git clone https://github.com/le0nchw/go-doh.git
+```
+```
 cd go-doh
 ```
 2. Build the executable
@@ -42,7 +41,7 @@ The proxy can be configured by passing command-line arguments:
 ### Run as Service Using systemd
 1. copy init/go-doh.service to /etc/systemd/system
 ```
-cp /etc/init/go-doh.service /etc/systemd/system
+cp init/go-doh.service /etc/systemd/system/go-doh.service
 ```
 2. copy doh to /usr/local/bin
 ```
@@ -51,5 +50,7 @@ cp doh /usr/local/bin/doh
 3. enable and start using systemctl
 ```
 systemctl enable go-doh.service
+```
+```
 systemctl start go-doh.service
 ```
