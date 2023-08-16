@@ -1,6 +1,6 @@
 package main
 
-import "doh/internal"
+import doh "doh/internal"
 
 func main() {
 	doh.Run()

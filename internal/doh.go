@@ -1,4 +1,4 @@
-package doh
+package internal
 
 import (
 	"context"
