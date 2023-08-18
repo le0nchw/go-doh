@@ -4,12 +4,10 @@ import (
 	"bytes"
 	"doh/internal/cache"
 	"doh/internal/resolver"
-	"doh/internal/startup"
 	"doh/internal/util"
 	"io"
 	"log"
 	"net/http"
-	"time"
 )
 
 func HandleRequest(w http.ResponseWriter, r *http.Request) {
@@ -30,13 +28,13 @@ func HandleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dnsQueryString := string(dnsQuery)
-	if res, ok := cache.Cache.Get(dnsQueryString); ok {
+	if res, ok := cache.Get(dnsQueryString); ok {
 		forwardDNSResponse(w, res)
 		return
 	}
 
-	// Send the DNS query to the local DNS resolver
-	response, err := resolver.SendUdpQuery(dnsQuery)
+	res := resolver.New(dnsQueryString)
+	response, err := res.SendUdpQuery(dnsQuery)
 	if err != nil {
 		http.Error(w, "Failed to send DNS query", http.StatusInternalServerError)
 		log.Println("Failed to send DNS query:", err)
@@ -44,7 +42,6 @@ func HandleRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Forward the DNS response to the client
-	go cache.Cache.Set(dnsQueryString, response, time.Second*time.Duration(*startup.Ttl))
 	forwardDNSResponse(w, response)
 }
 

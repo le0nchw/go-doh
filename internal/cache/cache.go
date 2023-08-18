@@ -5,55 +5,40 @@ import (
 	"time"
 )
 
-// DNSCacheEntry represents a cached DNS response
-type DNSCacheEntry struct {
+var data sync.Map
+
+type dnsCache struct {
 	Response []byte
 	Expiry   time.Time
 }
 
-type DNSCache struct {
-	cache map[string]DNSCacheEntry
-	mutex sync.RWMutex
-}
-
-func NewDNSCache() *DNSCache {
-	c := DNSCache{
-		cache: make(map[string]DNSCacheEntry),
-	}
+func init() {
 	go func() {
 		for range time.Tick(time.Minute) {
-			for k, v := range c.cache {
-				if v.Expiry.Before(time.Now()) {
-					c.mutex.Lock()
-					delete(c.cache, k)
-					c.mutex.Unlock()
+			data.Range(func(k, v any) bool {
+				if v.(dnsCache).Expiry.Before(time.Now()) {
+					data.Delete(k)
 				}
-			}
+				return true
+			})
 		}
 	}()
-	return &c
 }
 
-func (c *DNSCache) Get(key string) ([]byte, bool) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+func Get(key string) ([]byte, bool) {
 
-	entry, ok := c.cache[key]
-	if !ok || entry.Expiry.Before(time.Now()) {
+	entry, ok := data.Load(key)
+	if !ok || entry.(dnsCache).Expiry.Before(time.Now()) {
 		return nil, false
 	}
 
-	return entry.Response, true
+	return entry.(dnsCache).Response, true
 }
 
-func (c *DNSCache) Set(key string, response []byte, ttl time.Duration) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+func Set(key string, response []byte, ttl time.Duration) {
 
-	c.cache[key] = DNSCacheEntry{
+	data.Store(key, dnsCache{
 		Response: response,
 		Expiry:   time.Now().Add(ttl),
-	}
+	})
 }
-
-var Cache *DNSCache

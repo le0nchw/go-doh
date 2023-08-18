@@ -2,7 +2,6 @@ package internal
 
 import (
 	"context"
-	"doh/internal/cache"
 	"doh/internal/handler"
 	"doh/internal/startup"
 	"fmt"
@@ -19,8 +18,6 @@ func Run() {
 	server := &http.Server{
 		Addr: fmt.Sprintf(":%d", *startup.Port),
 	}
-
-	cache.Cache = cache.NewDNSCache()
 
 	// Handle incoming HTTP requests
 	http.HandleFunc("/", handler.HandleRequest)
