@@ -24,7 +24,7 @@ func init() {
 	go func() {
 		for range time.Tick(time.Minute) {
 			rs.Range(func(k, v any) bool {
-				if v.(Resolver).Expiry.Before(time.Now()) {
+				if v.(*Resolver).Expiry.Before(time.Now()) {
 					rs.Delete(k)
 				}
 				return true
@@ -40,14 +40,13 @@ type Resolver struct {
 
 func New(key string) *Resolver {
 	if val, ok := rs.Load(key); ok {
-		val.(*Resolver).Expiry = time.Now().Add(time.Second * 10)
 		return val.(*Resolver)
-	} else {
-		val := &Resolver{
-			Expiry: time.Now().Add(time.Second * 10),
-		}
-		return val
 	}
+	r := Resolver{
+		Expiry: time.Now().Add(time.Second * 10),
+	}
+	rs.Store(key, &r)
+	return &r
 }
 
 // Send the UDP DNS query to upstream DNS resolver
