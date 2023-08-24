@@ -24,7 +24,7 @@ func init() {
 	go func() {
 		for range time.Tick(time.Minute) {
 			rs.Range(func(k, v any) bool {
-				if v.(*Resolver).Expiry.Before(time.Now()) {
+				if v.(*Resolver).Expiry.Before(startup.CachedTime) {
 					rs.Delete(k)
 				}
 				return true
@@ -43,7 +43,7 @@ func New(key string) *Resolver {
 		return val.(*Resolver)
 	}
 	r := Resolver{
-		Expiry: time.Now().Add(time.Second * 10),
+		Expiry: startup.CachedTime.Add(time.Second * 10),
 	}
 	rs.Store(key, &r)
 	return &r
