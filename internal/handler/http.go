@@ -8,7 +8,14 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"sync"
 )
+
+var buffers = sync.Pool{
+	New: func() interface{} {
+		return &bytes.Buffer{}
+	},
+}
 
 func HandleRequest(w http.ResponseWriter, r *http.Request) {
 	// Extract the DNS query from the request
@@ -59,12 +66,15 @@ func extractDNSQueryFromGET(r *http.Request) []byte {
 
 // Extract the DNS query from the POST request
 func extractDNSQueryFromPOST(r *http.Request) []byte {
-	buffer := new(bytes.Buffer)
+	buffer := buffers.Get().(*bytes.Buffer)
 	_, err := io.Copy(buffer, r.Body)
 	if err != nil {
 		return nil
 	}
-	return buffer.Bytes()
+	buff := buffer.Bytes()
+	buffer.Reset()
+	buffers.Put(buffer)
+	return buff
 }
 
 // Forward the DNS response to the client

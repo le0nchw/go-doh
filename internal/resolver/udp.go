@@ -20,6 +20,12 @@ var connPool = sync.Pool{
 	},
 }
 
+var bytes = sync.Pool{
+	New: func() interface{} {
+		return make([]byte, 512)
+	},
+}
+
 func init() {
 	go func() {
 		for range time.Tick(time.Minute) {
@@ -65,13 +71,14 @@ func (r *Resolver) SendUdpQuery(query []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	buffer := make([]byte, 512)
+	buffer := bytes.Get().([]byte)
 	n, err := conn.Read(buffer)
 	if err != nil {
 		return nil, err
 	}
-	buffer = buffer[:n]
+	buff := buffer[:n]
+	bytes.Put(buffer)
 
-	cache.Set(queryString, buffer, time.Second*time.Duration(*startup.Ttl))
-	return buffer, nil
+	cache.Set(queryString, buff, time.Second*time.Duration(*startup.Ttl))
+	return buff, nil
 }
