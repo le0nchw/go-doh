@@ -32,7 +32,7 @@ func Run() {
 			log.Fatalf("listen: %s\n", err)
 		}
 	}()
-	log.Printf("DoH proxy started on http://localhost:%d, upstream server: %s, cache ttl: %d\n", *startup.Port, *startup.Upstream, *startup.Ttl)
+	log.Printf("DoH proxy started on http://localhost:%d, upstream server: %s, cache ttl: %d, tcp: %t\n", *startup.Port, *startup.Upstream, *startup.Ttl, *startup.Tcp)
 
 	<-c
 	log.Print("Graceful shutdown")
