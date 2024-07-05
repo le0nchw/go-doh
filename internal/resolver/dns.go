@@ -3,13 +3,17 @@ package resolver
 import (
 	"doh/internal/cache"
 	"doh/internal/startup"
+	"doh/internal/util"
 	"encoding/binary"
+	"errors"
 	"io"
 	"log"
 	"net"
 	"sync"
 	"time"
 )
+
+var ErrTcFlag error = errors.New("TC")
 
 var rs sync.Map
 
@@ -68,7 +72,7 @@ func New(key string) *Resolver {
 func (r *Resolver) SendUdpQuery(query []byte) ([]byte, error) {
 	r.lock.Lock()
 	defer r.lock.Unlock()
-	queryString := string(query)
+	queryString, _ := util.EncodeBase64URL(query)
 	if res, ok := cache.Get(queryString); ok {
 		return res, nil
 	}
@@ -89,7 +93,7 @@ func (r *Resolver) SendUdpQuery(query []byte) ([]byte, error) {
 
 	// Resend the query using TCP if TC flag is set
 	if isTruncated(buffer[:n]) {
-		buffer, err = r.SendTcpQuery(query)
+		return nil, ErrTcFlag
 	}
 	if err != nil {
 		return nil, err
@@ -103,7 +107,7 @@ func (r *Resolver) SendUdpQuery(query []byte) ([]byte, error) {
 func (r *Resolver) SendTcpQuery(query []byte) ([]byte, error) {
 	r.lock.Lock()
 	defer r.lock.Unlock()
-	queryString := string(query)
+	queryString, _ := util.EncodeBase64URL(query)
 	if res, ok := cache.Get(queryString); ok {
 		return res, nil
 	}

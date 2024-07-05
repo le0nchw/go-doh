@@ -35,7 +35,7 @@ func HandleRequest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "No DNS query provided", http.StatusBadRequest)
 		return
 	}
-	dnsQueryString := string(dnsQuery)
+	dnsQueryString, _ := util.EncodeBase64URL(dnsQuery)
 	if res, ok := cache.Get(dnsQueryString); ok {
 		forwardDNSResponse(w, res)
 		return
@@ -48,6 +48,10 @@ func HandleRequest(w http.ResponseWriter, r *http.Request) {
 		response, err = res.SendTcpQuery(dnsQuery)
 	} else {
 		response, err = res.SendUdpQuery(dnsQuery)
+	}
+	if err == resolver.ErrTcFlag {
+		log.Println("TC: ", dnsQueryString)
+		response, err = res.SendTcpQuery(dnsQuery)
 	}
 	if err != nil {
 		http.Error(w, "Failed to send DNS query", http.StatusInternalServerError)
