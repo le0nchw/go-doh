@@ -28,6 +28,9 @@ func init() {
 
 func Get(key string) ([]byte, bool) {
 
+	if *startup.Ttl <= 0 {
+		return nil, false
+	}
 	entry, ok := data.Load(key)
 	if !ok || entry.(dnsCache).Expiry.Before(startup.CachedTime) {
 		return nil, false
@@ -38,6 +41,9 @@ func Get(key string) ([]byte, bool) {
 
 func Set(key string, response []byte, ttl time.Duration) {
 
+	if *startup.Ttl <= 0 {
+		return
+	}
 	data.Store(key, dnsCache{
 		Response: response,
 		Expiry:   startup.CachedTime.Add(ttl),

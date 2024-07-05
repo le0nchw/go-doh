@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"doh/internal/cache"
 	"doh/internal/resolver"
+	"doh/internal/startup"
 	"doh/internal/util"
 	"io"
 	"log"
@@ -41,7 +42,13 @@ func HandleRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res := resolver.New(dnsQueryString)
-	response, err := res.SendUdpQuery(dnsQuery)
+	var response []byte
+	var err error
+	if *startup.Tcp {
+		response, err = res.SendTcpQuery(dnsQuery)
+	} else {
+		response, err = res.SendUdpQuery(dnsQuery)
+	}
 	if err != nil {
 		http.Error(w, "Failed to send DNS query", http.StatusInternalServerError)
 		log.Println("Failed to send DNS query:", err)
@@ -67,14 +74,15 @@ func extractDNSQueryFromGET(r *http.Request) []byte {
 // Extract the DNS query from the POST request
 func extractDNSQueryFromPOST(r *http.Request) []byte {
 	buffer := buffers.Get().(*bytes.Buffer)
+	defer func() {
+		buffer.Reset()
+		buffers.Put(buffer)
+	}()
 	_, err := io.Copy(buffer, r.Body)
 	if err != nil {
 		return nil
 	}
-	buff := buffer.Bytes()
-	buffer.Reset()
-	buffers.Put(buffer)
-	return buff
+	return buffer.Bytes()
 }
 
 // Forward the DNS response to the client
