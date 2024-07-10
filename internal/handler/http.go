@@ -35,8 +35,17 @@ func HandleRequest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "No DNS query provided", http.StatusBadRequest)
 		return
 	}
+
+	validator := util.NewDNSRequestValidator(dnsQuery)
+	if err := validator.Validate(); err != nil {
+		http.Error(w, "DNS query malformed", http.StatusBadRequest)
+		log.Println("DNS query malformed:", err)
+		return
+	}
+
 	dnsQueryString, _ := util.EncodeBase64URL(dnsQuery)
 	if res, ok := cache.Get(dnsQueryString); ok {
+		util.VLog("[hit] ", dnsQueryString)
 		forwardDNSResponse(w, res)
 		return
 	}
@@ -50,12 +59,16 @@ func HandleRequest(w http.ResponseWriter, r *http.Request) {
 		response, err = res.SendUdpQuery(dnsQuery)
 	}
 	if err == resolver.ErrTcFlag {
-		log.Println("TC: ", dnsQueryString)
+		log.Println("[tc] ", dnsQueryString)
+		response, err = res.SendTcpQuery(dnsQuery)
+	}
+	if err == resolver.ErrRCode {
+		log.Println("[rc] ", dnsQueryString)
 		response, err = res.SendTcpQuery(dnsQuery)
 	}
 	if err != nil {
 		http.Error(w, "Failed to send DNS query", http.StatusInternalServerError)
-		log.Println("Failed to send DNS query:", err)
+		log.Println("Failed to send DNS query:", dnsQueryString, err)
 		return
 	}
 

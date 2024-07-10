@@ -14,6 +14,7 @@ import (
 )
 
 var ErrTcFlag error = errors.New("TC")
+var ErrRCode error = errors.New("RC")
 
 var rs sync.Map
 
@@ -72,8 +73,12 @@ func New(key string) *Resolver {
 func (r *Resolver) SendUdpQuery(query []byte) ([]byte, error) {
 	r.lock.Lock()
 	defer r.lock.Unlock()
+
+	domain := util.GetDomainName(query)
 	queryString, _ := util.EncodeBase64URL(query)
 	if res, ok := cache.Get(queryString); ok {
+		debugStr, _ := util.EncodeBase64URL(res)
+		util.VLog("[hit] ", domain, queryString, debugStr)
 		return res, nil
 	}
 	conn := connPool.Get().(net.Conn)
@@ -95,10 +100,10 @@ func (r *Resolver) SendUdpQuery(query []byte) ([]byte, error) {
 	if isTruncated(buffer[:n]) {
 		return nil, ErrTcFlag
 	}
-	if err != nil {
-		return nil, err
+	if isDNSError(getRCode(buffer[:n])) {
+		return nil, ErrRCode
 	}
-
+	util.VLog("[reply] ", domain)
 	cache.Set(queryString, buffer[:n], time.Second*time.Duration(*startup.Ttl))
 	return buffer[:n], nil
 }
@@ -107,8 +112,13 @@ func (r *Resolver) SendUdpQuery(query []byte) ([]byte, error) {
 func (r *Resolver) SendTcpQuery(query []byte) ([]byte, error) {
 	r.lock.Lock()
 	defer r.lock.Unlock()
+
+	domain := util.GetDomainName(query)
 	queryString, _ := util.EncodeBase64URL(query)
+
 	if res, ok := cache.Get(queryString); ok {
+		debugStr, _ := util.EncodeBase64URL(res)
+		util.VLog("[hit] ", domain, queryString, debugStr)
 		return res, nil
 	}
 
@@ -152,10 +162,30 @@ func (r *Resolver) SendTcpQuery(query []byte) ([]byte, error) {
 		return nil, err
 	}
 
+	if isDNSError(getRCode(buffer[:n])) {
+		return nil, ErrRCode
+	}
+
+	util.VLog("[reply] ", domain)
 	cache.Set(queryString, buffer[:n], time.Second*time.Duration(*startup.Ttl))
 	return buffer[:n], nil
 }
 
 func isTruncated(resp []byte) bool {
 	return (resp[2]&0x02 != 0)
+}
+
+func getRCode(resp []byte) uint8 {
+	return uint8(resp[3] & 0x0F)
+}
+
+func isDNSError(rcode uint8) bool {
+	switch rcode {
+	case 0:
+		return false
+	case 3:
+		return false
+	default:
+		return true
+	}
 }

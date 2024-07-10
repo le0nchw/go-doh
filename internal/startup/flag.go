@@ -7,8 +7,9 @@ import (
 
 var Upstream = flag.String("upstream", "127.0.0.1:53", "DNS Upstream Address and Port")
 var Port = flag.Int("port", 8080, "Port to listen")
-var Ttl = flag.Int("ttl", 30, "Time to cache in seconds")
+var Ttl = flag.Int("ttl", 0, "Time to cache in seconds")
 var Tcp = flag.Bool("tcp", false, "Use TCP to connect DNS upstream")
+var Verbose = flag.Bool("v", false, "Enable verbose logging")
 
 var CachedTime = time.Now()
 
