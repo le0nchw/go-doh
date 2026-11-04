@@ -24,7 +24,7 @@ func HandleRequest(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		dnsQuery = extractDNSQueryFromGET(r)
 	} else if r.Method == http.MethodPost {
-		dnsQuery = extractDNSQueryFromPOST(r)
+		dnsQuery = extractDNSQueryFromPOST(w, r)
 	} else {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -89,13 +89,15 @@ func extractDNSQueryFromGET(r *http.Request) []byte {
 }
 
 // Extract the DNS query from the POST request
-func extractDNSQueryFromPOST(r *http.Request) []byte {
+func extractDNSQueryFromPOST(w http.ResponseWriter, r *http.Request) []byte {
+	// ponytail: DNS messages are <=65535 bytes over TCP; cap the body to
+	// prevent unbounded memory growth (memory-exhaustion DoS).
 	buffer := buffers.Get().(*bytes.Buffer)
 	defer func() {
 		buffer.Reset()
 		buffers.Put(buffer)
 	}()
-	_, err := io.Copy(buffer, r.Body)
+	_, err := io.Copy(buffer, http.MaxBytesReader(w, r.Body, 65535))
 	if err != nil {
 		return nil
 	}

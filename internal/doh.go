@@ -15,8 +15,14 @@ import (
 
 func Run() {
 	// Create a new HTTP server
+	// ponytail: bind to localhost by default and set timeouts to avoid
+	// Slowloris / connection-exhaustion DoS and accidental public exposure.
 	server := &http.Server{
-		Addr: fmt.Sprintf(":%d", *startup.Port),
+		Addr:            fmt.Sprintf("%s:%d", *startup.BindAddress, *startup.Port),
+		ReadTimeout:     5 * time.Second,
+		WriteTimeout:    10 * time.Second,
+		IdleTimeout:     60 * time.Second,
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 
 	// Handle incoming HTTP requests

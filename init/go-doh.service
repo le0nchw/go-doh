@@ -4,7 +4,10 @@ After=network.target
 
 [Service]
 Restart=always
-User=root
+# ponytail: run as an unprivileged user, not root, to limit blast radius if
+# the proxy is compromised (F10). Create the user/group before installing.
+User=doh
+Group=doh
 ExecStart=/usr/local/bin/doh
 
 [Install]

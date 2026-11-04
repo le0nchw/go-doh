@@ -17,7 +17,7 @@ func init() {
 	go func() {
 		for range time.Tick(time.Minute) {
 			data.Range(func(k, v any) bool {
-				if v.(dnsCache).Expiry.Before(startup.CachedTime) {
+			if v.(dnsCache).Expiry.Before(startup.Now()) {
 					data.Delete(k)
 				}
 				return true
@@ -32,7 +32,7 @@ func Get(key string) ([]byte, bool) {
 		return nil, false
 	}
 	entry, ok := data.Load(key)
-	if !ok || entry.(dnsCache).Expiry.Before(startup.CachedTime) {
+	if !ok || entry.(dnsCache).Expiry.Before(startup.Now()) {
 		return nil, false
 	}
 
@@ -46,6 +46,6 @@ func Set(key string, response []byte, ttl time.Duration) {
 	}
 	data.Store(key, dnsCache{
 		Response: response,
-		Expiry:   startup.CachedTime.Add(ttl),
+		Expiry:   startup.Now().Add(ttl),
 	})
 }
