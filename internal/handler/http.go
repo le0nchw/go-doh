@@ -101,7 +101,9 @@ func extractDNSQueryFromPOST(w http.ResponseWriter, r *http.Request) []byte {
 	if err != nil {
 		return nil
 	}
-	return buffer.Bytes()
+	// ponytail: hand back a copy so the pooled buffer can be reset and reused
+	// without clobbering a concurrent request's query (pool-corruption fix).
+	return bytes.Clone(buffer.Bytes())
 }
 
 // Forward the DNS response to the client
