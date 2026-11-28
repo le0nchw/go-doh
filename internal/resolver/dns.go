@@ -44,7 +44,11 @@ func (c *errConn) SetWriteDeadline(_ time.Time) error { return nil }
 
 var bytes = sync.Pool{
 	New: func() interface{} {
-		return make([]byte, 512)
+		// ponytail: size the UDP receive buffer to the maximum possible DNS
+		// message (65535) so a legit UDP reply larger than the old 512-byte
+		// buffer (DNSSEC, EDNS, large TXT, multi-record answers) is not
+		// silently truncated to <=512 bytes (F3).
+		return make([]byte, 65535)
 	},
 }
 

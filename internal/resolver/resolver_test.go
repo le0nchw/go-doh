@@ -242,6 +242,55 @@ func TestSendTcpQuery(t *testing.T) {
 	}
 }
 
+// largeUDPServer echoes back a fixed, oversized reply so the resolver's UDP
+// buffer must be large enough to hold a >512 byte DNS message whole.
+func largeUDPServer(t *testing.T) (string, func()) {
+	t.Helper()
+	addr, err := net.ResolveUDPAddr("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("resolve udp: %v", err)
+	}
+	conn, err := net.ListenUDP("udp", addr)
+	if err != nil {
+		t.Fatalf("listen udp: %v", err)
+	}
+	resp := make([]byte, 60000)
+	copy(resp, []byte{0x00, 0x00, 0x81, 0x80}) // QR=1, TC=0, RA=1, RCODE=0
+	go func() {
+		buf := make([]byte, 65535)
+		for {
+			n, raddr, err := conn.ReadFromUDP(buf)
+			if err != nil {
+				return
+			}
+			if _, err := conn.WriteToUDP(resp, raddr); err != nil {
+				return
+			}
+			_ = n
+		}
+	}()
+	return conn.LocalAddr().String(), func() { conn.Close() }
+}
+
+// TestLargeUDPResponseNotTruncated_F3 proves F3: a UDP reply larger than the
+// old 512-byte buffer is returned in full, not truncated.
+func TestLargeUDPResponseNotTruncated_F3(t *testing.T) {
+	upstream, cleanup := largeUDPServer(t)
+	defer cleanup()
+	setUpstream(t, upstream)
+	resetConnPool()
+	*startup.Ttl = 0
+
+	r := New("large-udp")
+	resp, err := r.SendUdpQuery(makeDNSQuery(1, "example.com"))
+	if err != nil {
+		t.Fatalf("SendUdpQuery: %v", err)
+	}
+	if len(resp) != 60000 {
+		t.Fatalf("expected 60000-byte response, got %d (truncated?)", len(resp))
+	}
+}
+
 // TestPooledBufferIntegrity proves the copy-out fix: a response returned from
 // SendUdpQuery must not share its backing array with the pooled read buffer,
 // otherwise a subsequent query reusing that buffer would corrupt the earlier
